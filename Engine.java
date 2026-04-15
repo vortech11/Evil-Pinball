@@ -4,10 +4,8 @@ import java.awt.image.BufferStrategy;
 
 import java.util.ArrayList;
 
-public class Engine extends Frame implements Runnable{
-   private Thread gameThread;
-
-   boolean running = false;
+public class Engine extends Frame{
+   boolean running = true;
 
    private final int FPS = 30;
    private final long TARGET_TIME = 1000 / FPS;
@@ -22,20 +20,10 @@ public class Engine extends Frame implements Runnable{
 
    BufferStrategy bs;
 
-   //PhysicsBall ball = new PhysicsBall(50.0, 50.0, 40.0);
-       
    public Engine(){
       super("AWT Game");
       prepareGUI();
       //prepareGUI();
-   }
-
-   public void start(){
-      if (!running){
-         running = true;
-         gameThread = new Thread(this);
-         gameThread.start();
-      }
    }
 
    private void prepareGUI(){
@@ -43,7 +31,7 @@ public class Engine extends Frame implements Runnable{
       WINDOWSIZE.x = screenSize.width;
       WINDOWSIZE.y = screenSize.height;
       setSize((int) WINDOWSIZE.x, (int) WINDOWSIZE.y);
-      //setBackground(new Color(0, 0, 0));
+      setBackground(new Color(0, 0, 0));
       this.setVisible(true);
       this.createBufferStrategy(2);
       bs = this.getBufferStrategy();
@@ -55,7 +43,8 @@ public class Engine extends Frame implements Runnable{
             //System.out.println("Mouse Clicked at: " + x + ", " + y);
             Vector2 clickPosition = new Vector2(e.getX(), e.getY());
             //System.out.println(clickPosition);
-            balls.add(new PhysicsBall(camera.unTransformPoint(clickPosition), 40, new Color(0)));
+            balls.add(new PhysicsBall(camera.unTransformPoint(clickPosition), 40, new Color(255, 255, 255)));
+            //System.out.println("HELP!!!");
          }
       });
 
@@ -66,18 +55,14 @@ public class Engine extends Frame implements Runnable{
       });
    }
 
-   @Override
-   public void run(){
+   public void start(){
       long startTime;
       long timeMillis;
       long waitTime;
       while (running){
          startTime = System.nanoTime();
-         //update(getGraphics());
          render(bs.getDrawGraphics());
          update(dt);
-         //paint(getGraphics());
-         //System.out.println("hello world");
          
          timeMillis = (System.nanoTime() - startTime) / 1000000;
          waitTime = TARGET_TIME - timeMillis;
@@ -106,12 +91,11 @@ public class Engine extends Frame implements Runnable{
       WINDOWSIZE.x = screenSize.width;
       WINDOWSIZE.y = screenSize.height;
 
-      g2.setColor(Color.WHITE);
+      g2.setColor(Color.BLACK);
       g2.fillRect(0, 0, (int) WINDOWSIZE.x, (int) WINDOWSIZE.y);
       //Font font = new Font("Serif", Font.PLAIN, 24);
       //g2.setFont(font);
       //g2.drawString("Hello world", 50, 70);
-      //ball.render(g2);
       for (PhysicsBall ball : balls){
          ball.render(g2, camera);
       }
