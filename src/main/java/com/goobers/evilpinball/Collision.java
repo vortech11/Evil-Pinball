@@ -1,3 +1,5 @@
+package com.goobers.evilpinball;
+
 public class Collision {
     Engine gameEngine;
 

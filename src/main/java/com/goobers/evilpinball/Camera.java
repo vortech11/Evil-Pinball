@@ -1,3 +1,5 @@
+package com.goobers.evilpinball;
+
 public class Camera {
     Vector2 possition = new Vector2(0, 0);
 
