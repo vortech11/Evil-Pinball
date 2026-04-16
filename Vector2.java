@@ -70,6 +70,7 @@ public class Vector2
 
     public void rotate_rad_ip(double radian){
         double mag = magnitude();
+        if (mag == 0) return;
         double angle = Math.atan(y/x);
         if (x < 0){
             angle = Math.PI - Math.atan(y/-x);
@@ -77,6 +78,22 @@ public class Vector2
         angle += radian;
         x = mag * Math.cos(angle);
         y = mag * Math.sin(angle);
+    }
+
+    public static int[] vectorArrayToInt_X(Vector2[] points){
+        int[] Xs = new int[points.length];
+        for (int i = 0; i < points.length; i++){
+            Xs[i] = (int) points[i].x;
+        }
+        return Xs;
+    }
+
+    public static int[] vectorArrayToInt_Y(Vector2[] points){
+        int[] Ys = new int[points.length];
+        for (int i = 0; i < points.length; i++){
+            Ys[i] = (int) points[i].y;
+        }
+        return Ys;
     }
 
     @Override

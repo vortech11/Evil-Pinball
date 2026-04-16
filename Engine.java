@@ -16,6 +16,8 @@ public class Engine extends Frame{
 
    ArrayList<PhysicsBall> balls = new ArrayList<PhysicsBall>();
 
+   Paddle myPaddle = new Paddle(new Vector2(0, 0));
+
    Camera camera = new Camera(new Vector2(0, 0), 1, WINDOWSIZE);
 
    BufferStrategy bs;
@@ -43,8 +45,13 @@ public class Engine extends Frame{
             //System.out.println("Mouse Clicked at: " + x + ", " + y);
             Vector2 clickPosition = new Vector2(e.getX(), e.getY());
             //System.out.println(clickPosition);
-            balls.add(new PhysicsBall(camera.unTransformPoint(clickPosition), 40, new Color(255, 255, 255)));
-            //System.out.println("HELP!!!");
+            balls.add(
+               new PhysicsBall(
+                  camera.unTransformPoint(clickPosition), 
+                  20, 
+                  new Color(255, 255, 255)
+               )
+            );
          }
       });
 
@@ -79,7 +86,7 @@ public class Engine extends Frame{
 
    public void update(double dt){
       for (PhysicsBall ball : balls){
-         ball.update(dt);
+         ball.update(dt, myPaddle);
       }
    }
 
@@ -96,9 +103,11 @@ public class Engine extends Frame{
       //Font font = new Font("Serif", Font.PLAIN, 24);
       //g2.setFont(font);
       //g2.drawString("Hello world", 50, 70);
-      for (PhysicsBall ball : balls){
-         ball.render(g2, camera);
+      for (int i = 0; i < balls.size(); i++){
+         balls.get(i).render(g2, camera);
       }
+
+      myPaddle.render(g2, camera);
 
       g2.dispose();
       bs.show();
