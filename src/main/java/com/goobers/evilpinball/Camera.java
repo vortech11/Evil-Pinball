@@ -1,7 +1,7 @@
 package com.goobers.evilpinball;
 
 public class Camera {
-    Vector2 possition = new Vector2(0, 0);
+    Vector2 position = new Vector2(0, 0);
 
     double zoom = 1;
 
@@ -10,9 +10,9 @@ public class Camera {
 
     Vector2 screenSize;
 
-    public Camera(Vector2 possition, double zoom, Vector2 screenSize){
+    public Camera(Vector2 position, double zoom, Vector2 screenSize){
         this.screenSize = screenSize;
-        this.possition.copy(possition);
+        this.position.copy(position);
         this.zoom = zoom;
     }
 
@@ -22,7 +22,7 @@ public class Camera {
 
     public Vector2 transformPoint(Vector2 point){
         Vector2 newPoint = new Vector2(point);
-        newPoint.subtract(possition);
+        newPoint.subtract(position);
         newPoint.rotate_rad_ip(rotation);
         newPoint.scale(zoom);
         newPoint.add(Vector2.scale(screenSize, 0.5));
@@ -34,7 +34,7 @@ public class Camera {
         newPoint.subtract(Vector2.scale(screenSize, 0.5));
         newPoint.scale(1/zoom);
         newPoint.rotate_rad_ip(-rotation);
-        newPoint.add(possition);
+        newPoint.add(position);
         return newPoint;
     }
 }

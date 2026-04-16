@@ -5,40 +5,40 @@ import java.awt.Graphics2D;
 //import java.awt.geom.*;
 
 public class PhysicsBall {
-    Vector2 possition = new Vector2(0, 0);
+    Vector2 position = new Vector2(0, 0);
     Vector2 velocity = new Vector2(0, 0);
     double size = 50;
 
-    double gravity = 10000;
+    Vector2 gravity = new Vector2(0, 10000);
 
     Color color = new Color(0);
 
     public PhysicsBall(Vector2 position, double size, Color color) {
-        this.possition.copy(position);
+        this.position.copy(position);
         this.size = size;
         this.color = color;
     }
 
     public PhysicsBall(double x, double y, double size, Color color) {
-        possition.x = x;
-        possition.y = y;
+        position.x = x;
+        position.y = y;
         this.size = size;
         this.color = color;
     }
 
     public void update(double dt, Paddle paddle){
-        velocity.y += gravity * dt;
-        possition.add(velocity);
+        velocity.add(Vector2.scale(gravity, dt));
+        position.add(velocity);
         Vector2[] globalVerts = paddle.getGlobalVertices();
-        if (Collision.polyCircle(possition, size, globalVerts)){
-            possition.subtract(velocity);
+        if (Collision.polyCircle(position, size, globalVerts)){
+            position.subtract(velocity);
             velocity.y = 0.0;
         }
     }
 
     public void render(Graphics2D frame, Camera camera){
         frame.setColor(color);
-        Vector2 renderPosition = camera.transformPoint(possition);
+        Vector2 renderPosition = camera.transformPoint(position);
         frame.fillOval(
             (int) (renderPosition.x - size), 
             (int) (renderPosition.y - size), 

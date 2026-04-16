@@ -4,7 +4,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 
 public class PhysicsObj {
-    Vector2 possition;
+    Vector2 position;
     Vector2[] vertices;
     double rotation;
     Color color;
@@ -23,7 +23,7 @@ public class PhysicsObj {
         Color color,
         double scale
     ){
-        this.possition = pos;
+        this.position = pos;
         this.vertices = verticies;
         this.rotation = rotation;
         this.velocity = vel;
@@ -32,8 +32,8 @@ public class PhysicsObj {
         this.scale = scale;
     }
 
-    public void updatePossition(double dt){
-        possition.add(Vector2.scale(velocity, dt));
+    public void updateposition(double dt){
+        position.add(Vector2.scale(velocity, dt));
         rotation += angularVel * dt;
     }
 
@@ -43,7 +43,7 @@ public class PhysicsObj {
             Vector2 point = new Vector2(vertices[i]);
             point.scale(this.scale);
             point.rotate_rad_ip(rotation);
-            point.add(possition);
+            point.add(position);
             transformed[i] = point;
         }
         
