@@ -29,7 +29,7 @@ public class PhysicsBall {
     public void update(double dt, Paddle paddle){
         velocity.add(Vector2.scale(gravity, dt));
         position.add(velocity);
-        Vector2[] globalVerts = paddle.getGlobalVertices();
+        Vector2[] globalVerts = paddle.getGlobalvertices();
         if (Collision.polyCircle(position, size, globalVerts)){
             position.subtract(velocity);
             velocity.y = 0.0;

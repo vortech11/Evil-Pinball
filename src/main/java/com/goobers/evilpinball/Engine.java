@@ -22,6 +22,8 @@ public class Engine extends Frame{
 
    Camera camera = new Camera(new Vector2(0, 0), 1, WINDOWSIZE);
 
+   Level myLevel;
+
    BufferStrategy bs;
 
    public Engine(){
@@ -69,7 +71,7 @@ public class Engine extends Frame{
       long timeMillis;
       long waitTime;
 
-      Level myLevel = LevelLoader.loadLevel("src/main/resources/level1.json");
+      myLevel = LevelLoader.loadLevel("src/main/resources/level1.json");
       System.out.println(myLevel);
 
       while (running){
@@ -112,6 +114,8 @@ public class Engine extends Frame{
       for (int i = 0; i < balls.size(); i++){
          balls.get(i).render(g2, camera);
       }
+
+      myLevel.renderPoly(g2, camera);
 
       myPaddle.render(g2, camera);
 
