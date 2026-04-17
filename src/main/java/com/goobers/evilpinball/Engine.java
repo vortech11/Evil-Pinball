@@ -68,6 +68,10 @@ public class Engine extends Frame{
       long startTime;
       long timeMillis;
       long waitTime;
+
+      Level myLevel = LevelLoader.loadLevel("src/main/resources/level1.json");
+      System.out.println(myLevel);
+
       while (running){
          startTime = System.nanoTime();
          render(bs.getDrawGraphics());
