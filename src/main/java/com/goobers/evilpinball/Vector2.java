@@ -1,6 +1,7 @@
 package com.goobers.evilpinball;
 
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
 
 public class Vector2 
     extends Point2D.Double{
@@ -45,12 +46,22 @@ public class Vector2
         y *= value;
     }
 
+    public void normalize(){
+        if (magnitudeSq() == 0) return;
+        scale(1/magnitude());
+    }
+
     public static double dot(Vector2 vector1, Vector2 vector2){
         return vector1.x * vector2.x + vector1.y * vector2.y;
     }
 
     public static double cross(Vector2 vector1, Vector2 vector2){
         return vector1.x * vector2.y + vector1.y * vector2.x;
+    }
+
+    public static Vector2 normalize(Vector2 vector){
+        if (vector.magnitudeSq() == 0) return vector;
+        return scale(vector, 1/vector.magnitude());
     }
 
     public static Vector2 add(Vector2 vector1, Vector2 vector2){
@@ -96,6 +107,19 @@ public class Vector2
             Ys[i] = (int) points[i].y;
         }
         return Ys;
+    }
+
+    public static Vector2 getSmalles(ArrayList<Vector2> forces){
+        double minimum = java.lang.Double.MAX_VALUE;
+        Vector2 minVector = new Vector2(0, 0);
+        for (Vector2 force : forces){
+            double mag = force.magnitude();
+            if (mag < minimum){
+                minimum = mag;
+                minVector = force;
+            }
+        }
+        return minVector;
     }
 
     @Override

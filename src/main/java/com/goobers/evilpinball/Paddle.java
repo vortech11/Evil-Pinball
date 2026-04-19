@@ -14,8 +14,8 @@ public class Paddle extends PhysicsObj {
             new Vector2(0, 0),
             0,
             new int[] {255, 255, 255},
+            1,
             1
         );
-
     }
 }

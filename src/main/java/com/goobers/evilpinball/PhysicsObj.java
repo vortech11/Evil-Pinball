@@ -12,6 +12,7 @@ public class PhysicsObj extends PolyNode {
 
     Vector2 velocity;
     double angularVel;
+    double mass;
 
     public PhysicsObj(
         Vector2 pos, 
@@ -20,7 +21,8 @@ public class PhysicsObj extends PolyNode {
         Vector2 vel, 
         double angularVel, 
         int[] color,
-        double scale
+        double scale,
+        double mass
     ){
         super();
         this.position = pos;
@@ -30,6 +32,7 @@ public class PhysicsObj extends PolyNode {
         this.angularVel = angularVel;
         this.color = color;
         this.scale = scale;
+        this.mass = mass;
     }
 
     public void updateposition(double dt){
