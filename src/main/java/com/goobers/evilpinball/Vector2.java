@@ -1,7 +1,7 @@
 package com.goobers.evilpinball;
 
 import java.awt.geom.Point2D;
-import java.util.ArrayList;
+//import java.util.ArrayList;
 
 public class Vector2 
     extends Point2D.Double{
@@ -109,17 +109,11 @@ public class Vector2
         return Ys;
     }
 
-    public static Vector2 getSmalles(ArrayList<Vector2> forces){
-        double minimum = java.lang.Double.MAX_VALUE;
-        Vector2 minVector = new Vector2(0, 0);
-        for (Vector2 force : forces){
-            double mag = force.magnitude();
-            if (mag < minimum){
-                minimum = mag;
-                minVector = force;
-            }
-        }
-        return minVector;
+    public static Vector2 getNormal(Vector2 p1, Vector2 p2){
+        Vector2 edge = Vector2.subtract(p2, p1);
+        Vector2 normal = new Vector2(edge.y, -edge.x);
+        normal.normalize();
+        return normal;
     }
 
     @Override

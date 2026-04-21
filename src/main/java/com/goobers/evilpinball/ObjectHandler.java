@@ -59,6 +59,14 @@ public class ObjectHandler {
                 double totalMass = obj.mass + obj2.mass;
                 obj.position.add(Vector2.scale(mtd, obj2.mass / totalMass));
                 obj2.position.add(Vector2.scale(mtd, -obj.mass / totalMass));
+
+                FaceSet faces = identifyFaces(obj.getGlobalvertices(), obj2.getGlobalvertices(), mtd);
+                if (faces == null) continue;
+                ArrayList<PositionDepth> contactManifold = getContactManifold(faces.reference, faces.incident);
+                for (PositionDepth contact : contactManifold){
+                    applyImpulse(obj, obj2, contact, contactManifold.size(), mtd);
+                }
+
             }
         }
         /*
@@ -89,6 +97,141 @@ public class ObjectHandler {
         }
         */
     }
+
+    public record Face(Vector2 point1, Vector2 point2, Vector2 normal){}
+
+    public static Face getBestFace(Vector2[] vertices, Vector2 direction){
+        double bestProjection = Double.MIN_VALUE;
+        int bestVertex = -1;
+        for (int i = 0; i < vertices.length; i++){
+            double projection = Vector2.dot(vertices[i], direction);
+            if (projection > bestProjection){
+                bestProjection = projection;
+                bestVertex = i;
+            }
+        }
+        if (bestVertex == -1) return null;
+
+        Vector2 vertex = vertices[bestVertex];
+        Vector2 next = vertices[(bestVertex + 1) % vertices.length];
+        Vector2 previous = vertices[(bestVertex - 1 + vertices.length) % vertices.length];
+        
+        Vector2 leftEdge = Vector2.normalize(Vector2.subtract(vertex, next));
+        Vector2 rightEdge = Vector2.normalize(Vector2.subtract(vertex, previous));
+
+        if (Math.abs(Vector2.dot(leftEdge, direction)) <= Math.abs(Vector2.dot(rightEdge, direction))) {
+            return new Face(vertex, next, Vector2.getNormal(vertex, next));
+            //return new Vector2[] {vertex, next};
+            //return { v1: v, v2: vNext, normal: getNormal(v, vNext) };
+        } else {
+            return new Face(previous, next, Vector2.getNormal(previous, vertex));
+            //return new Vector2[] {previous, vertex};
+            //return { v1: vPrev, v2: v, normal: getNormal(vPrev, v) };
+        }
+    }
+
+    public record FaceSet(Face reference, Face incident, boolean flipped){}
+
+    public static FaceSet identifyFaces(Vector2[] vertices1, Vector2[] vertices2, Vector2 normal){
+        Face faceA = getBestFace(vertices1, normal);
+        Face faceB = getBestFace(vertices2, Vector2.scale(normal, -1));
+        
+        if (faceA == null || faceB == null) {
+            return null;
+        }
+        
+        if (Math.abs(Vector2.dot(faceA.normal, normal)) <= Math.abs(Vector2.dot(faceB.normal, normal)))
+            return new FaceSet(faceA, faceB, false);
+        return new FaceSet(faceB, faceA, true);
+        
+    }
+
+    public static ArrayList<Vector2> clip(Vector2 p1, Vector2 p2, Vector2 normal, double offset) {
+        ArrayList<Vector2> contactPoints = new ArrayList<Vector2>();
+        
+        double d1 = Vector2.dot(normal, p1) - offset;
+        double d2 = Vector2.dot(normal, p2) - offset;
+
+        if (d1 <= 0) contactPoints.add(p1);
+        if (d2 <= 0) contactPoints.add(p2);
+
+        // If they are on opposite sides, find the intersection point
+        if (d1 * d2 < 0) {
+            double t = d1 / (d1 - d2);
+            Vector2 intersect = Vector2.add(Vector2.scale(Vector2.subtract(p2, p1), t), p1);
+            contactPoints.add(intersect);
+        }
+
+        return contactPoints;
+    }
+
+    public record PositionDepth(Vector2 position, double depth){}
+
+    public static ArrayList<PositionDepth> getContactManifold(Face reference, Face incident) {
+        // Calculate side plane normals (perpendicular to reference normal)
+        Vector2 referenceVec = Vector2.normalize(Vector2.subtract(reference.point2, reference.point1));
+        
+        // Define offsets for the clipping planes
+        double negSideOffset = -Vector2.dot(referenceVec, reference.point1);
+        double posSideOffset = Vector2.dot(referenceVec, reference.point2);
+        double refPlaneOffset = Vector2.dot(reference.normal, reference.point1);
+
+        // Clip against negative side plane
+        ArrayList<Vector2> points = clip(incident.point1, incident.point2, Vector2.scale(referenceVec, -1), negSideOffset);
+        if (points.size() < 2) return new ArrayList<PositionDepth>();
+
+        // Clip against positive side plane
+        points = clip(points.get(0), points.get(1), referenceVec, posSideOffset);
+        if (points.size() < 2) return new ArrayList<PositionDepth>();
+
+        // Clip against the Reference Face Plane (keep only penetrating points)
+        ArrayList<PositionDepth> finalContacts = new ArrayList<PositionDepth>();
+        for (Vector2 p : points) {
+            double separation = Vector2.dot(reference.normal, p) - refPlaneOffset;
+            if (separation <= 0) {
+                finalContacts.add( new PositionDepth(p, -separation) );
+            }
+        }
+
+        return finalContacts;
+    }
+
+    public static void applyImpulse(PhysicsObj objA, PhysicsObj objB, PositionDepth contact, int contactNum, Vector2 normal){
+        Vector2 rA = Vector2.subtract(contact.position, objA.position);
+        Vector2 rB = Vector2.subtract(contact.position, objB.position);
+
+        Vector2 vA = Vector2.add((new Vector2(rA.y * -objA.angularVel, rA.x * objA.angularVel)), objA.velocity);
+        Vector2 vB = Vector2.add((new Vector2(rB.y * -objB.angularVel, rB.x * objB.angularVel)), objB.velocity);
+
+        Vector2 vRel = Vector2.subtract(vB, vA);
+
+        double velAlongNormal = Vector2.dot(vRel, normal);
+
+        if (velAlongNormal > 0) return;
+
+        double restitution = Math.min(objA.bounciness, objB.bounciness);
+
+        double rACrossN = Vector2.cross(rA, normal);
+        double rBCrossN = Vector2.cross(rB, normal);
+
+        double inverseMassSum = 
+            (1 / objA.mass) + (1 / objB.mass) + 
+            (rACrossN * rACrossN) / objA.momentOfInertia + 
+            (rBCrossN * rBCrossN) / objB.momentOfInertia;
+        
+        double j = -(1 + restitution) * velAlongNormal;
+        j /= inverseMassSum;
+        j /= contactNum;
+
+        Vector2 impulse = Vector2.scale(normal, j);
+        
+        objA.velocity.subtract(Vector2.scale(impulse, 1/objA.mass));
+        objA.angularVel -= rACrossN * j / objA.momentOfInertia;
+
+        objB.velocity.add(Vector2.scale(impulse, 1/objB.mass));
+        objB.angularVel += rBCrossN * j / objB.momentOfInertia;
+    }
+
 
     /**
      * This projects an array of points for a line. It takes in the orthoginal line of two consecutave points

@@ -13,6 +13,10 @@ public class PhysicsObj extends PolyNode {
     Vector2 velocity;
     double angularVel;
     double mass;
+    double bounciness = 0.5;
+    double momentOfInertia = 0.001;
+    double velocityScalar = 1;
+
 
     public PhysicsObj(
         Vector2 pos, 
@@ -22,7 +26,8 @@ public class PhysicsObj extends PolyNode {
         double angularVel, 
         int[] color,
         double scale,
-        double mass
+        double mass,
+        double momentOfInertia
     ){
         super();
         this.position = pos;
@@ -33,9 +38,11 @@ public class PhysicsObj extends PolyNode {
         this.color = color;
         this.scale = scale;
         this.mass = mass;
+        this.momentOfInertia = momentOfInertia;
     }
 
     public void updateposition(double dt){
+        velocity.scale(velocityScalar);
         position.add(Vector2.scale(velocity, dt));
         rotation += angularVel * dt;
     }
