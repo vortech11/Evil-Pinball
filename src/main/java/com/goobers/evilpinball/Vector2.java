@@ -56,7 +56,7 @@ public class Vector2
     }
 
     public static double cross(Vector2 vector1, Vector2 vector2){
-        return vector1.x * vector2.y + vector1.y * vector2.x;
+        return vector1.x * vector2.y - vector1.y * vector2.x;
     }
 
     public static Vector2 normalize(Vector2 vector){
@@ -111,7 +111,7 @@ public class Vector2
 
     public static Vector2 getNormal(Vector2 p1, Vector2 p2){
         Vector2 edge = Vector2.subtract(p2, p1);
-        Vector2 normal = new Vector2(edge.y, -edge.x);
+        Vector2 normal = new Vector2(-edge.y, edge.x);
         normal.normalize();
         return normal;
     }

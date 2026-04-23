@@ -9,6 +9,8 @@ public class PolyNode {
     Vector2 position;
     double rotation;
 
+    double bounciness;
+
     double scale;
 
     int[] color;
@@ -58,6 +60,10 @@ public class PolyNode {
         this.color = color;
     }
 
+    public void setBounciness(double bounciness){
+        this.bounciness = bounciness;
+    }
+
     public String toString(){
         String verts = "vertices: [";
         for (Vector2 point : vertices){
@@ -73,7 +79,8 @@ public class PolyNode {
         " Position: " + position.toString() + 
         " Rotation: " + rotation + 
         " Scale: " + scale + 
-        " Color: " + colors;
+        " Color: " + colors +
+        " Bounciness: " + bounciness;
     }
 
 }

@@ -21,7 +21,7 @@ public class LevelLoader {
             fileScanner.close();
 
         } catch (Exception e) {
-            System.out.println(e);
+            //System.out.println(e);
             // if error, don't
         }
 

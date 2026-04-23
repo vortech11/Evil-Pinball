@@ -6,17 +6,17 @@ public class Paddle extends PhysicsObj {
         super(
             position,
             new Vector2[] {
-                    new Vector2(0, 0),
-                    new Vector2(150, 25),
-                    new Vector2(0, 50)
+                    new Vector2(-50, -50),
+                    new Vector2(150, 0),
+                    new Vector2(-50, 50)
             },
-            1,
+            1.1,
             new Vector2(0, 0),
             0,
             new int[] {255, 255, 255},
             1,
             1,
-            calculateMomentOfInertia(1, 150, 50) // mass=1, width=150, height=50
+            calculateMomentOfInertia(1, 200, 50) // mass=1, width=150, height=50
         );
     }
 

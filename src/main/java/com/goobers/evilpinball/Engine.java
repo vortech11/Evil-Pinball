@@ -77,9 +77,11 @@ public class Engine extends Frame{
       //System.out.println(myLevel);
 
       Paddle moving = new Paddle(new Vector2(0, -200));
-      moving.velocity.y = 50000;
+      Paddle other = new Paddle(new Vector2(0, -500));
+      other.velocity = new Vector2(0, 200000);
       objHandlr.newPhysObj(moving);
-      objHandlr.newPhysObj(new Paddle(new Vector2(0, 0)));
+      objHandlr.newPhysObj(other);
+      //objHandlr.newPhysObj(new Paddle(new Vector2(0, 0)));
 
       while (running){
          startTime = System.nanoTime();

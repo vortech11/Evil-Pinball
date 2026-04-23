@@ -4,11 +4,6 @@ package com.goobers.evilpinball;
 //import java.awt.Graphics2D;
 
 public class PhysicsObj extends PolyNode {
-    //Vector2 position;
-    //Vector2[] vertices;
-    //double rotation;
-    //Color color;
-    //double scale;
 
     Vector2 velocity;
     double angularVel;
@@ -42,6 +37,7 @@ public class PhysicsObj extends PolyNode {
     }
 
     public void updateposition(double dt){
+        //velocity.add(new Vector2(0, 1000));
         velocity.scale(velocityScalar);
         position.add(Vector2.scale(velocity, dt));
         rotation += angularVel * dt;

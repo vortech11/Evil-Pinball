@@ -50,23 +50,71 @@ public class ObjectHandler {
                 if (obj == obj2) continue;
                 Vector2 mtd = getResolvePolyPoly(obj.getGlobalvertices(), obj2.getGlobalvertices());
                 if (mtd.magnitudeSq() == 0) continue; // No collision
-                
-                Vector2 centerDiff = Vector2.subtract(obj.position, obj2.position);
-                if (Vector2.dot(mtd, centerDiff) < 0) {
-                    mtd.scale(-1);
+                System.out.println("\n--------Start of debug-------");
+                System.out.println("obj1 position: " + obj.position);
+                System.out.print("obj1 points:");
+                for (Vector2 point : obj.getGlobalvertices()) {
+                    System.out.print(" " + point + " ");
                 }
+                System.out.println("\nobj2 position: " + obj2.position);
+                System.out.print("obj2 points:");
+                for (Vector2 point : obj2.getGlobalvertices()) {
+                    System.out.print(" " + point + " ");
+                }
+                
+                Vector2 centerDiff = Vector2.subtract(obj2.position, obj.position);
+                if (Vector2.dot(mtd, centerDiff) > 0) mtd.scale(-1); // standardize mtd
                 
                 double totalMass = obj.mass + obj2.mass;
-                obj.position.add(Vector2.scale(mtd, obj2.mass / totalMass));
-                obj2.position.add(Vector2.scale(mtd, -obj.mass / totalMass));
+                // REMEMBER TO MOVE UNTIL AFTER IDENTIFYING FACES!!!!
+                obj.position.add(Vector2.scale(mtd, obj.mass / totalMass));
+                obj2.position.add(Vector2.scale(mtd, -obj2.mass / totalMass));
+                System.out.println("\nmtd: " + mtd);
 
                 FaceSet faces = identifyFaces(obj.getGlobalvertices(), obj2.getGlobalvertices(), mtd);
+                //System.out.println("faces: " + faces);
+                
                 if (faces == null) continue;
+                //System.out.println("continue");
+
                 ArrayList<PositionDepth> contactManifold = getContactManifold(faces.reference, faces.incident);
+                if (contactManifold.isEmpty()) {
+                    Vector2 contactPos = obj.position;
+                    double depth = mtd.magnitude();
+                    contactManifold.add(new PositionDepth(contactPos, depth));
+                }
+                //*/
                 for (PositionDepth contact : contactManifold){
-                    applyImpulse(obj, obj2, contact, contactManifold.size(), mtd);
+                    //applyImpulse(obj, obj2, contact, contactManifold.size(), mtd);
                 }
 
+                //obj.position.add(Vector2.scale(mtd, 1));
+                
+            }
+            
+            for (PolyNode hardObj : level.poly){
+                Vector2 mtd = getResolvePolyPoly(obj.getGlobalvertices(), hardObj.getGlobalvertices());
+                if (mtd.magnitudeSq() == 0) continue;
+                Vector2 centerDiff = Vector2.subtract(obj.position, hardObj.position);
+                if (Vector2.dot(mtd, centerDiff) < 0) mtd.scale(-1);
+
+                FaceSet faces = identifyFaces(obj.getGlobalvertices(), hardObj.getGlobalvertices(), mtd);
+
+                if (faces == null) {
+                    System.out.println("Existing early due to face being null");
+                    continue;
+                }
+                ArrayList<PositionDepth> contactManifold = getContactManifold(faces.reference, faces.incident);
+                //if (contactManifold.isEmpty()) {
+                //    Vector2 contactPos = obj.position;
+                //    double depth = mtd.magnitude();
+                //    contactManifold.add(new PositionDepth(contactPos, depth));
+                //}
+                for (PositionDepth contact : contactManifold){
+                    applyImpulse(obj, hardObj, contact, contactManifold.size(), mtd);
+                }
+                
+                obj.position.add(mtd);
             }
         }
         /*
@@ -116,8 +164,8 @@ public class ObjectHandler {
         Vector2 next = vertices[(bestVertex + 1) % vertices.length];
         Vector2 previous = vertices[(bestVertex - 1 + vertices.length) % vertices.length];
         
-        Vector2 leftEdge = Vector2.normalize(Vector2.subtract(vertex, next));
-        Vector2 rightEdge = Vector2.normalize(Vector2.subtract(vertex, previous));
+        Vector2 rightEdge = Vector2.normalize(Vector2.subtract(vertex, next));
+        Vector2 leftEdge = Vector2.normalize(Vector2.subtract(vertex, previous));
 
         if (Math.abs(Vector2.dot(leftEdge, direction)) <= Math.abs(Vector2.dot(rightEdge, direction))) {
             return new Face(vertex, next, Vector2.getNormal(vertex, next));
@@ -197,6 +245,9 @@ public class ObjectHandler {
     }
 
     public static void applyImpulse(PhysicsObj objA, PhysicsObj objB, PositionDepth contact, int contactNum, Vector2 normal){
+        Vector2 normalUnit = Vector2.normalize(normal);
+        if (normalUnit.magnitudeSq() == 0) return;
+
         Vector2 rA = Vector2.subtract(contact.position, objA.position);
         Vector2 rB = Vector2.subtract(contact.position, objB.position);
 
@@ -205,14 +256,13 @@ public class ObjectHandler {
 
         Vector2 vRel = Vector2.subtract(vB, vA);
 
-        double velAlongNormal = Vector2.dot(vRel, normal);
-
-        if (velAlongNormal > 0) return;
+        double velAlongNormal = Vector2.dot(vRel, normalUnit);
+        //if (velAlongNormal > 0) return;
 
         double restitution = Math.min(objA.bounciness, objB.bounciness);
 
-        double rACrossN = Vector2.cross(rA, normal);
-        double rBCrossN = Vector2.cross(rB, normal);
+        double rACrossN = Vector2.cross(rA, normalUnit);
+        double rBCrossN = Vector2.cross(rB, normalUnit);
 
         double inverseMassSum = 
             (1 / objA.mass) + (1 / objB.mass) + 
@@ -223,13 +273,45 @@ public class ObjectHandler {
         j /= inverseMassSum;
         j /= contactNum;
 
-        Vector2 impulse = Vector2.scale(normal, j);
+        Vector2 impulse = Vector2.scale(normalUnit, j);
         
         objA.velocity.subtract(Vector2.scale(impulse, 1/objA.mass));
         objA.angularVel -= rACrossN * j / objA.momentOfInertia;
 
         objB.velocity.add(Vector2.scale(impulse, 1/objB.mass));
         objB.angularVel += rBCrossN * j / objB.momentOfInertia;
+    }
+
+    public static void applyImpulse(PhysicsObj objA, PolyNode objB, PositionDepth contact, int contactNum, Vector2 normal){
+        Vector2 normalUnit = Vector2.normalize(normal);
+        //Vector2 normalUnit = normal;
+        if (normalUnit.magnitudeSq() == 0) return;
+
+        Vector2 rA = Vector2.subtract(contact.position, objA.position);
+
+        Vector2 vA = Vector2.add((new Vector2(rA.y * -objA.angularVel, rA.x * objA.angularVel)), objA.velocity);
+
+        Vector2 vRel = Vector2.scale(vA, -1);
+
+        double velAlongNormal = Vector2.dot(vRel, normalUnit);
+        //if (velAlongNormal > 0) return;
+
+        double restitution = Math.min(objA.bounciness, objB.bounciness);
+
+        double rACrossN = Vector2.cross(rA, normalUnit);
+
+        double inverseMassSum = 
+            (1 / objA.mass) + 
+            (rACrossN * rACrossN) / objA.momentOfInertia;
+        
+        double j = -(1 + restitution) * velAlongNormal;
+        j /= inverseMassSum;
+        j /= contactNum;
+
+        Vector2 impulse = Vector2.scale(normalUnit, j);
+        
+        objA.velocity.subtract(Vector2.scale(impulse, 1/objA.mass));
+        objA.angularVel -= rACrossN * j / objA.momentOfInertia;
     }
 
 
@@ -278,8 +360,7 @@ public class ObjectHandler {
             for (int i = 0; i < vertices.length; i++){
                 Vector2 p1 = vertices[i];
                 Vector2 p2 = vertices[(i + 1) % vertices.length];
-                Vector2 axis = new Vector2(-(p2.y-p1.y), p2.x-p1.x);
-                axis.normalize();
+                Vector2 axis = Vector2.getNormal(p1, p2);
                 double[] projec1 = projectPointsLine(vertices1, axis);
                 double[] projec2 = projectPointsLine(vertices2, axis);
                 double overlap = getOverlap(projec1, projec2);
