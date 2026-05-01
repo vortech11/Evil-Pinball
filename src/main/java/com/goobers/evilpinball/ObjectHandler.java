@@ -48,73 +48,38 @@ public class ObjectHandler {
         for (PhysicsObj obj : physObjs){
             for (PhysicsObj obj2 : physObjs){
                 if (obj == obj2) continue;
-                Vector2 mtd = getResolvePolyPoly(obj.getGlobalvertices(), obj2.getGlobalvertices());
-                if (mtd.magnitudeSq() == 0) continue; // No collision
-                System.out.println("\n--------Start of debug-------");
-                System.out.println("obj1 position: " + obj.position);
-                System.out.print("obj1 points:");
-                for (Vector2 point : obj.getGlobalvertices()) {
-                    System.out.print(" " + point + " ");
-                }
-                System.out.println("\nobj2 position: " + obj2.position);
-                System.out.print("obj2 points:");
-                for (Vector2 point : obj2.getGlobalvertices()) {
-                    System.out.print(" " + point + " ");
-                }
-                
-                Vector2 centerDiff = Vector2.subtract(obj2.position, obj.position);
-                if (Vector2.dot(mtd, centerDiff) > 0) mtd.scale(-1); // standardize mtd
+                Manifold collision = collide(obj.getGlobalvertices(), obj2.getGlobalvertices());
+                if (collision == null) continue; // No collision
+                Vector2 mtd = Vector2.scale(collision.normal, collision.penetration);
                 
                 double totalMass = obj.mass + obj2.mass;
-                // REMEMBER TO MOVE UNTIL AFTER IDENTIFYING FACES!!!!
-                obj.position.add(Vector2.scale(mtd, obj.mass / totalMass));
-                obj2.position.add(Vector2.scale(mtd, -obj2.mass / totalMass));
-                System.out.println("\nmtd: " + mtd);
 
-                FaceSet faces = identifyFaces(obj.getGlobalvertices(), obj2.getGlobalvertices(), mtd);
-                //System.out.println("faces: " + faces);
-                
-                if (faces == null) continue;
-                //System.out.println("continue");
-
-                ArrayList<PositionDepth> contactManifold = getContactManifold(faces.reference, faces.incident);
-                if (contactManifold.isEmpty()) {
-                    Vector2 contactPos = obj.position;
-                    double depth = mtd.magnitude();
-                    contactManifold.add(new PositionDepth(contactPos, depth));
-                }
-                //*/
-                for (PositionDepth contact : contactManifold){
-                    //applyImpulse(obj, obj2, contact, contactManifold.size(), mtd);
+                for (Vector2 contact : collision.contacts){
+                    applyImpulse(obj, obj2, contact, collision.contacts.length, mtd);
                 }
 
                 //obj.position.add(Vector2.scale(mtd, 1));
+                obj.position.add(Vector2.scale(mtd, obj.mass / totalMass));
+                obj2.position.add(Vector2.scale(mtd, -obj2.mass / totalMass));
                 
             }
             
             for (PolyNode hardObj : level.poly){
-                Vector2 mtd = getResolvePolyPoly(obj.getGlobalvertices(), hardObj.getGlobalvertices());
-                if (mtd.magnitudeSq() == 0) continue;
-                Vector2 centerDiff = Vector2.subtract(obj.position, hardObj.position);
-                if (Vector2.dot(mtd, centerDiff) < 0) mtd.scale(-1);
-
-                FaceSet faces = identifyFaces(obj.getGlobalvertices(), hardObj.getGlobalvertices(), mtd);
-
-                if (faces == null) {
-                    System.out.println("Existing early due to face being null");
-                    continue;
-                }
-                ArrayList<PositionDepth> contactManifold = getContactManifold(faces.reference, faces.incident);
-                //if (contactManifold.isEmpty()) {
-                //    Vector2 contactPos = obj.position;
-                //    double depth = mtd.magnitude();
-                //    contactManifold.add(new PositionDepth(contactPos, depth));
-                //}
-                for (PositionDepth contact : contactManifold){
-                    applyImpulse(obj, hardObj, contact, contactManifold.size(), mtd);
+                Manifold collisionManifold = collide(obj.getGlobalvertices(), hardObj.getGlobalvertices());
+                if (collisionManifold == null) continue; // No collision
+                System.out.println("\n======Start Debug=======");
+                System.out.println("Moving points: ");
+                for (Vector2 point : obj.getGlobalvertices()) System.out.println(point);
+                System.out.println("Static points: ");
+                for (Vector2 point : hardObj.getGlobalvertices()) System.out.println(point);
+                Vector2 mtd = Vector2.scale(collisionManifold.normal, collisionManifold.penetration);
+                System.out.println("contactManifold: " + collisionManifold.contacts.length);
+                for (Vector2 contact : collisionManifold.contacts){
+                    System.out.println(contact);
+                    applyImpulse(obj, hardObj, contact, collisionManifold.contacts.length, mtd);
                 }
                 
-                obj.position.add(mtd);
+                obj.position.subtract(mtd);
             }
         }
         /*
@@ -146,110 +111,12 @@ public class ObjectHandler {
         */
     }
 
-    public record Face(Vector2 point1, Vector2 point2, Vector2 normal){}
-
-    public static Face getBestFace(Vector2[] vertices, Vector2 direction){
-        double bestProjection = Double.MIN_VALUE;
-        int bestVertex = -1;
-        for (int i = 0; i < vertices.length; i++){
-            double projection = Vector2.dot(vertices[i], direction);
-            if (projection > bestProjection){
-                bestProjection = projection;
-                bestVertex = i;
-            }
-        }
-        if (bestVertex == -1) return null;
-
-        Vector2 vertex = vertices[bestVertex];
-        Vector2 next = vertices[(bestVertex + 1) % vertices.length];
-        Vector2 previous = vertices[(bestVertex - 1 + vertices.length) % vertices.length];
-        
-        Vector2 rightEdge = Vector2.normalize(Vector2.subtract(vertex, next));
-        Vector2 leftEdge = Vector2.normalize(Vector2.subtract(vertex, previous));
-
-        if (Math.abs(Vector2.dot(leftEdge, direction)) <= Math.abs(Vector2.dot(rightEdge, direction))) {
-            return new Face(vertex, next, Vector2.getNormal(vertex, next));
-            //return new Vector2[] {vertex, next};
-            //return { v1: v, v2: vNext, normal: getNormal(v, vNext) };
-        } else {
-            return new Face(previous, next, Vector2.getNormal(previous, vertex));
-            //return new Vector2[] {previous, vertex};
-            //return { v1: vPrev, v2: v, normal: getNormal(vPrev, v) };
-        }
-    }
-
-    public record FaceSet(Face reference, Face incident, boolean flipped){}
-
-    public static FaceSet identifyFaces(Vector2[] vertices1, Vector2[] vertices2, Vector2 normal){
-        Face faceA = getBestFace(vertices1, normal);
-        Face faceB = getBestFace(vertices2, Vector2.scale(normal, -1));
-        
-        if (faceA == null || faceB == null) {
-            return null;
-        }
-        
-        if (Math.abs(Vector2.dot(faceA.normal, normal)) <= Math.abs(Vector2.dot(faceB.normal, normal)))
-            return new FaceSet(faceA, faceB, false);
-        return new FaceSet(faceB, faceA, true);
-        
-    }
-
-    public static ArrayList<Vector2> clip(Vector2 p1, Vector2 p2, Vector2 normal, double offset) {
-        ArrayList<Vector2> contactPoints = new ArrayList<Vector2>();
-        
-        double d1 = Vector2.dot(normal, p1) - offset;
-        double d2 = Vector2.dot(normal, p2) - offset;
-
-        if (d1 <= 0) contactPoints.add(p1);
-        if (d2 <= 0) contactPoints.add(p2);
-
-        // If they are on opposite sides, find the intersection point
-        if (d1 * d2 < 0) {
-            double t = d1 / (d1 - d2);
-            Vector2 intersect = Vector2.add(Vector2.scale(Vector2.subtract(p2, p1), t), p1);
-            contactPoints.add(intersect);
-        }
-
-        return contactPoints;
-    }
-
-    public record PositionDepth(Vector2 position, double depth){}
-
-    public static ArrayList<PositionDepth> getContactManifold(Face reference, Face incident) {
-        // Calculate side plane normals (perpendicular to reference normal)
-        Vector2 referenceVec = Vector2.normalize(Vector2.subtract(reference.point2, reference.point1));
-        
-        // Define offsets for the clipping planes
-        double negSideOffset = -Vector2.dot(referenceVec, reference.point1);
-        double posSideOffset = Vector2.dot(referenceVec, reference.point2);
-        double refPlaneOffset = Vector2.dot(reference.normal, reference.point1);
-
-        // Clip against negative side plane
-        ArrayList<Vector2> points = clip(incident.point1, incident.point2, Vector2.scale(referenceVec, -1), negSideOffset);
-        if (points.size() < 2) return new ArrayList<PositionDepth>();
-
-        // Clip against positive side plane
-        points = clip(points.get(0), points.get(1), referenceVec, posSideOffset);
-        if (points.size() < 2) return new ArrayList<PositionDepth>();
-
-        // Clip against the Reference Face Plane (keep only penetrating points)
-        ArrayList<PositionDepth> finalContacts = new ArrayList<PositionDepth>();
-        for (Vector2 p : points) {
-            double separation = Vector2.dot(reference.normal, p) - refPlaneOffset;
-            if (separation <= 0) {
-                finalContacts.add( new PositionDepth(p, -separation) );
-            }
-        }
-
-        return finalContacts;
-    }
-
-    public static void applyImpulse(PhysicsObj objA, PhysicsObj objB, PositionDepth contact, int contactNum, Vector2 normal){
+    public static void applyImpulse(PhysicsObj objA, PhysicsObj objB, Vector2 contact, int contactNum, Vector2 normal){
         Vector2 normalUnit = Vector2.normalize(normal);
         if (normalUnit.magnitudeSq() == 0) return;
 
-        Vector2 rA = Vector2.subtract(contact.position, objA.position);
-        Vector2 rB = Vector2.subtract(contact.position, objB.position);
+        Vector2 rA = Vector2.subtract(contact, objA.position);
+        Vector2 rB = Vector2.subtract(contact, objB.position);
 
         Vector2 vA = Vector2.add((new Vector2(rA.y * -objA.angularVel, rA.x * objA.angularVel)), objA.velocity);
         Vector2 vB = Vector2.add((new Vector2(rB.y * -objB.angularVel, rB.x * objB.angularVel)), objB.velocity);
@@ -282,12 +149,12 @@ public class ObjectHandler {
         objB.angularVel += rBCrossN * j / objB.momentOfInertia;
     }
 
-    public static void applyImpulse(PhysicsObj objA, PolyNode objB, PositionDepth contact, int contactNum, Vector2 normal){
+    public static void applyImpulse(PhysicsObj objA, PolyNode objB, Vector2 contact, int contactNum, Vector2 normal){
         Vector2 normalUnit = Vector2.normalize(normal);
         //Vector2 normalUnit = normal;
         if (normalUnit.magnitudeSq() == 0) return;
 
-        Vector2 rA = Vector2.subtract(contact.position, objA.position);
+        Vector2 rA = Vector2.subtract(contact, objA.position);
 
         Vector2 vA = Vector2.add((new Vector2(rA.y * -objA.angularVel, rA.x * objA.angularVel)), objA.velocity);
 
@@ -314,66 +181,295 @@ public class ObjectHandler {
         objA.angularVel -= rACrossN * j / objA.momentOfInertia;
     }
 
-
-    /**
-     * This projects an array of points for a line. It takes in the orthoginal line of two consecutave points
-     * Plug the orthoginal of two points on a polygon and the full verticies into this and they will be projected.
-     * @param points
-     * @param axis
-     * @return
-     */
-    public static double[] projectPointsLine(Vector2[] points, Vector2 axis){
-        double[] projected = new double[points.length];
-        for (int i = 0; i < points.length; i++){
-            projected[i] = Vector2.dot(points[i], axis);
-        }
-        return projected;
-    }
-
     public record MinMax(double min, double max){}
 
-    public static MinMax getArrayMinMax(double[] points){
-        double minimum = Double.MAX_VALUE;
-        double maximum = Double.MIN_VALUE;
+    public static MinMax project(Vector2[] verts, Vector2 axis) {
+        double min = Double.MAX_VALUE;
+        double max = Double.NEGATIVE_INFINITY;
 
-        for (double point : points){
-            if (point < minimum) minimum = point;
-            if (point > maximum) maximum = point;
+        for (Vector2 v : verts) {
+            double p = Vector2.dot(v, axis);
+            if (p < min) min = p;
+            if (p > max) max = p;
         }
-
-        return new MinMax(minimum, maximum);
+        return new MinMax(min, max);
     }
 
-    public static double getOverlap(double[] points1, double[] points2){
-        MinMax minMax1 = getArrayMinMax(points1);
-        MinMax minMax2 = getArrayMinMax(points2);
-        return Math.min(minMax1.max, minMax2.max) - Math.max(minMax1.min, minMax2.min);
+    public static class AxisResult {
+        Vector2 normal;
+        double penetration;
+        int edgeIndex;
+
+        AxisResult(Vector2 n, double p, int i) {
+            normal = n;
+            penetration = p;
+            edgeIndex = i;
+        }
     }
 
-    public static Vector2 getResolvePolyPoly(Vector2[] vertices1, Vector2[] vertices2){
+    public static AxisResult findAxisLeastPenetration(Vector2[] A, Vector2[] B) {
         double minOverlap = Double.MAX_VALUE;
-        Vector2 minAxis = null;
-        
-        Vector2[][] allVertices = {vertices1, vertices2};
+        Vector2 bestNormal = null;
+        int bestEdge = -1;
 
-        for (Vector2[] vertices : allVertices){
-            for (int i = 0; i < vertices.length; i++){
-                Vector2 p1 = vertices[i];
-                Vector2 p2 = vertices[(i + 1) % vertices.length];
-                Vector2 axis = Vector2.getNormal(p1, p2);
-                double[] projec1 = projectPointsLine(vertices1, axis);
-                double[] projec2 = projectPointsLine(vertices2, axis);
-                double overlap = getOverlap(projec1, projec2);
+        Vector2 centerA = computeCenter(A);
+        Vector2 centerB = computeCenter(B);
 
-                if (overlap <= 0) return new Vector2(0, 0);
-                
-                if (overlap < minOverlap){
-                    minOverlap = overlap;
-                    minAxis = axis;
-                }
+        for (int i = 0; i < A.length; i++) {
+            Vector2 p1 = A[i];
+            Vector2 p2 = A[(i + 1) % A.length];
+
+            Vector2 edge = Vector2.subtract(p1, p2);
+            Vector2 axis = Vector2.normalize(Vector2.perpendicular(edge));
+
+            // FORCE CONSISTENT DIRECTION
+            //if (Vector2.dot(axis, Vector2.subtract(centerB, centerA)) < 0) {
+            //    axis = Vector2.scale(axis, -1);
+            //}
+
+            //double maxB = -Double.MAX_VALUE;
+            //for (Vector2 v : B){
+            //    maxB = Math.max(maxB, Vector2.dot(v, axis));
+            //}
+//
+            //double minA = Double.MAX_VALUE;
+            //for (Vector2 v : A){
+            //    minA = Math.min(minA, Vector2.dot(v, axis));
+            //}
+//
+            //if (maxB < minA){
+            //    axis = Vector2.scale(axis, -1);
+            //}
+
+            MinMax projA = project(A, axis);
+            MinMax projB = project(B, axis);
+
+            double overlap = Math.min(projA.max(), projB.max())
+                           - Math.max(projA.min(), projB.min());
+
+            if (overlap < -1e-5) return null; // separating axis
+
+            if (overlap < minOverlap) {
+                minOverlap = overlap;
+                bestNormal = axis;
+                bestEdge = i;
             }
         }
-        return Vector2.scale(minAxis, minOverlap);
+
+        return new AxisResult(bestNormal, minOverlap, bestEdge);
+    }
+
+    public record Face(Vector2 normal, Vector2 v1, Vector2 v2) {}
+
+    public static Face getFace(Vector2[] poly, int edgeIndex) {
+        Vector2 v1 = poly[edgeIndex];
+        Vector2 v2 = poly[(edgeIndex + 1) % poly.length];
+
+        Vector2 edge = Vector2.subtract(v2, v1);
+        Vector2 normal = Vector2.normalize(Vector2.perpendicular(edge));
+
+        return new Face(normal, v1, v2);
+    }
+
+    public static Vector2[] findIncidentEdge(Vector2[] poly, Vector2 refNormal) {
+        int index = 0;
+        double maxDot = -Double.MAX_VALUE;
+        
+        Vector2 center = computeCenter(poly);
+        
+        for (int i = 0; i < poly.length; i++) {
+            Vector2 v1 = poly[i];
+            Vector2 v2 = poly[(i + 1) % poly.length];
+
+            Vector2 edge = Vector2.subtract(v1, v2);
+            Vector2 normal = Vector2.normalize(Vector2.perpendicular(edge));
+
+            Vector2 mid = Vector2.scale(Vector2.add(v1, v2), 0.5);
+            Vector2 toCenter = Vector2.subtract(center, mid);
+
+            if (Vector2.dot(normal, toCenter) > 0) {
+                //normal = Vector2.scale(normal, -1);
+            }
+
+            double dot = Vector2.dot(refNormal, normal);
+            //double dot = Vector2.dot(refNormal, edge);
+
+            if (dot > maxDot) {
+                maxDot = dot;
+                index = i;
+            }
+        }
+
+        return new Vector2[] {
+            poly[index],
+            poly[(index + 1) % poly.length]
+        };
+    }
+
+    public static Vector2[] clip(Vector2 a, Vector2 b, Vector2 normal, double offset) {
+        Vector2[] out = new Vector2[2];
+        int count = 0;
+
+        double da = Vector2.dot(normal, a) - offset;
+        double db = Vector2.dot(normal, b) - offset;
+
+        if (da <= 0) out[count++] = a;
+        if (db <= 0) out[count++] = b;
+
+        if (da * db < 0) {
+            double t = da / (da - db);
+            Vector2 p = Vector2.add(a, Vector2.scale(Vector2.subtract(b, a), t));
+            out[count++] = p;
+        }
+
+        if (count == 0) return new Vector2[0];
+        if (count == 1) return new Vector2[] { out[0] };
+
+        return out;
+    }
+
+    public static Vector2 computeCenter(Vector2[] points) {
+        double x = 0;
+        double y = 0;
+
+        for (Vector2 p : points) {
+            x += p.x;
+            y += p.y;
+        }
+
+        int count = points.length;
+        return new Vector2(x / count, y / count);
+    }
+
+    public static Vector2[] determineManifold(Vector2[] refPoly, Vector2[] incPoly, Vector2 refNormal, AxisResult refRes){
+        Face refFace = getFace(refPoly, refRes.edgeIndex);
+
+        // incident edge MUST use reference face normal
+        Vector2[] incident = findIncidentEdge(incPoly, refNormal);
+
+        System.out.println("Reference poly: ");
+        for (Vector2 point : refPoly) System.out.println(point);
+        System.out.println("Incident poly: ");
+        for (Vector2 point : incPoly) System.out.println(point);
+
+        System.out.println("Incident points:");
+        System.out.println(incident[0]);
+        System.out.println(incident[1]);
+        System.out.println("Reference points:");
+        System.out.println(refFace.v1);
+        System.out.println(refFace.v2);
+
+        // build side planes from reference face
+        Vector2 edge = Vector2.subtract(refFace.v2, refFace.v1);
+        Vector2 edgeDir = Vector2.normalize(edge);
+
+        //Vector2 sideNormal = Vector2.normalize(Vector2.perpendicular(edge));
+        Vector2 sideNormal = refNormal;
+
+        double leftOffset = Vector2.dot(sideNormal, refFace.v1);
+        double rightOffset = Vector2.dot(Vector2.scale(sideNormal, -1), refFace.v2);
+
+        Vector2[] clip1 = clip(
+            incident[0],
+            incident[1],
+            Vector2.scale(sideNormal, -1),
+            -leftOffset
+        );
+
+        if (clip1.length < 2) {
+            System.out.println("EXIT 1");
+            return null;
+        }
+
+        Vector2[] clip2 = clip(
+            clip1[0],
+            clip1[1],
+            sideNormal,
+            rightOffset
+        );
+
+        if (clip2.length < 2) {
+            System.out.println("EXIT 2");
+            return null;
+        }
+
+        /*
+
+        double refOffset = Vector2.dot(refNormal, refFace.v1);
+
+        Vector2[] contacts = new Vector2[2];
+        int count = 0;
+
+        for (Vector2 v : clip2) {
+            double separation = Vector2.dot(refNormal, v) - refOffset;
+            if (separation <= 0) {
+                contacts[count++] = v;
+            }
+        }
+        
+        */
+
+        Vector2[] contacts = new Vector2[2];
+        int count = 0;
+
+        for (Vector2 v : clip2) {
+            boolean intersecting = polyPoint(v, refPoly);
+            if (intersecting) {
+                contacts[count++] = v;
+            }
+        }
+
+        if (count == 0) {
+            System.out.println("EXIT 3");
+            return null;
+        }
+
+        Vector2[] finalContacts = (count == 2)
+            ? contacts
+            : new Vector2[] { contacts[0] };
+        
+        return finalContacts;
+    }
+
+    public record Manifold(Vector2 normal, double penetration, Vector2[] contacts) {}
+
+    public static Manifold collide(Vector2[] A, Vector2[] B) {
+
+        AxisResult resA = findAxisLeastPenetration(A, B);
+        if (resA == null) return null;
+
+        AxisResult resB = findAxisLeastPenetration(B, A);
+        if (resB == null) return null;
+
+        Vector2[] refPoly, incPoly;
+        AxisResult refRes;
+
+        boolean flip;
+
+        if (resA.penetration <= resB.penetration) {
+            refPoly = A;
+            incPoly = B;
+            refRes = resA;
+            flip = false;
+        } else {
+            refPoly = B;
+            incPoly = A;
+            refRes = resB;
+            flip = true;
+        }
+
+        //Vector2 refNormal = refFace.normal;
+        Vector2 refNormal = refRes.normal;
+
+        if (flip) {
+            refNormal = Vector2.scale(refRes.normal, -1);
+        }
+
+        Vector2[] finalContacts = determineManifold(refPoly, incPoly, refNormal, refRes);
+
+        if (finalContacts == null) return null;
+
+        return new Manifold(refNormal, refRes.penetration, finalContacts);
     }
 
     public static boolean pointCircle(Vector2 circlePos, double size, Vector2 point){

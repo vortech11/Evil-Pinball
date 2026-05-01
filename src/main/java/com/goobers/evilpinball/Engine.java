@@ -78,8 +78,8 @@ public class Engine extends Frame{
 
       Paddle moving = new Paddle(new Vector2(0, -200));
       Paddle other = new Paddle(new Vector2(0, -500));
-      other.velocity = new Vector2(0, 200000);
-      objHandlr.newPhysObj(moving);
+      //other.velocity = new Vector2(0, 200000);
+      //objHandlr.newPhysObj(moving);
       objHandlr.newPhysObj(other);
       //objHandlr.newPhysObj(new Paddle(new Vector2(0, 0)));
 

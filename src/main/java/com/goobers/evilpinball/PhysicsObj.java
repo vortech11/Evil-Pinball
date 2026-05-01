@@ -37,7 +37,7 @@ public class PhysicsObj extends PolyNode {
     }
 
     public void updateposition(double dt){
-        //velocity.add(new Vector2(0, 1000));
+        velocity.add(new Vector2(0, 1000));
         velocity.scale(velocityScalar);
         position.add(Vector2.scale(velocity, dt));
         rotation += angularVel * dt;

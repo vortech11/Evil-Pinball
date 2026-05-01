@@ -81,16 +81,15 @@ public class Vector2
         this.y = vector.y;
     }
 
-    public void rotate_rad_ip(double radian){
-        double mag = magnitude();
-        if (mag == 0) return;
-        double angle = Math.atan(y/x);
-        if (x < 0){
-            angle = Math.PI - Math.atan(y/-x);
-        }
-        angle += radian;
-        x = mag * Math.cos(angle);
-        y = mag * Math.sin(angle);
+    public void rotate_rad_ip(double r) {
+        double cos = Math.cos(r);
+        double sin = Math.sin(r);
+
+        double nx = x * cos - y * sin;
+        double ny = x * sin + y * cos;
+
+        x = nx;
+        y = ny;
     }
 
     public static int[] vectorArrayToInt_X(Vector2[] points){
@@ -111,9 +110,15 @@ public class Vector2
 
     public static Vector2 getNormal(Vector2 p1, Vector2 p2){
         Vector2 edge = Vector2.subtract(p2, p1);
-        Vector2 normal = new Vector2(-edge.y, edge.x);
-        normal.normalize();
-        return normal;
+        return Vector2.perpendicular(edge);
+    }
+
+    public static Vector2 perpendicular(Vector2 edge){
+        return new Vector2(-edge.y, edge.x);
+    }
+
+    public boolean equals(Vector2 vector){
+        return (this.x == vector.x) && (this.y == vector.y);
     }
 
     @Override
