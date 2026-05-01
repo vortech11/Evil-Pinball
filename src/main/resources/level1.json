@@ -7,7 +7,7 @@
                 { "x": -150, "y": 50 }
             ],
             "position": { "x": 10, "y": 10 },
-            "rotation": -3,
+            "rotation": -4.5,
             "scale": 1,
             "color": [255, 0, 0],
             "bounciness": 0.5

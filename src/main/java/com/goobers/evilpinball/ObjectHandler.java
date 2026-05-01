@@ -59,7 +59,7 @@ public class ObjectHandler {
                 }
 
                 //obj.position.add(Vector2.scale(mtd, 1));
-                obj.position.add(Vector2.scale(mtd, obj.mass / totalMass));
+                obj.position.subtract(Vector2.scale(mtd, obj.mass / totalMass));
                 obj2.position.add(Vector2.scale(mtd, -obj2.mass / totalMass));
                 
             }
