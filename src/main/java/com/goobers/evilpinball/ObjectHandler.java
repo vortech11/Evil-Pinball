@@ -67,11 +67,11 @@ public class ObjectHandler {
             for (PolyNode hardObj : level.poly){
                 Manifold collisionManifold = collide(obj.getGlobalvertices(), hardObj.getGlobalvertices());
                 if (collisionManifold == null) continue; // No collision
-                System.out.println("\n======Start Debug=======");
-                System.out.println("Moving points: ");
-                for (Vector2 point : obj.getGlobalvertices()) System.out.println(point);
-                System.out.println("Static points: ");
-                for (Vector2 point : hardObj.getGlobalvertices()) System.out.println(point);
+                //System.out.println("\n======Start Debug=======");
+                //System.out.println("Moving points: ");
+                //for (Vector2 point : obj.getGlobalvertices()) System.out.println(point);
+                //System.out.println("Static points: ");
+                //for (Vector2 point : hardObj.getGlobalvertices()) System.out.println(point);
                 Vector2 mtd = Vector2.scale(collisionManifold.normal, collisionManifold.penetration);
                 System.out.println("contactManifold: " + collisionManifold.contacts.length);
                 for (Vector2 contact : collisionManifold.contacts){
@@ -212,8 +212,8 @@ public class ObjectHandler {
         Vector2 bestNormal = null;
         int bestEdge = -1;
 
-        Vector2 centerA = computeCenter(A);
-        Vector2 centerB = computeCenter(B);
+        //Vector2 centerA = computeCenter(A);
+        //Vector2 centerB = computeCenter(B);
 
         for (int i = 0; i < A.length; i++) {
             Vector2 p1 = A[i];
@@ -231,12 +231,12 @@ public class ObjectHandler {
             //for (Vector2 v : B){
             //    maxB = Math.max(maxB, Vector2.dot(v, axis));
             //}
-//
+            //
             //double minA = Double.MAX_VALUE;
             //for (Vector2 v : A){
             //    minA = Math.min(minA, Vector2.dot(v, axis));
             //}
-//
+            //
             //if (maxB < minA){
             //    axis = Vector2.scale(axis, -1);
             //}
@@ -259,51 +259,35 @@ public class ObjectHandler {
         return new AxisResult(bestNormal, minOverlap, bestEdge);
     }
 
-    public record Face(Vector2 normal, Vector2 v1, Vector2 v2) {}
+    public record Edge(Vector2 vertex, Vector2 p1, Vector2 p2){}
 
-    public static Face getFace(Vector2[] poly, int edgeIndex) {
-        Vector2 v1 = poly[edgeIndex];
-        Vector2 v2 = poly[(edgeIndex + 1) % poly.length];
-
-        Vector2 edge = Vector2.subtract(v2, v1);
-        Vector2 normal = Vector2.normalize(Vector2.perpendicular(edge));
-
-        return new Face(normal, v1, v2);
-    }
-
-    public static Vector2[] findIncidentEdge(Vector2[] poly, Vector2 refNormal) {
-        int index = 0;
-        double maxDot = -Double.MAX_VALUE;
+    public static Edge findPointFarthest(Vector2[] poly, Vector2 normal){
+        double max = -Double.MAX_VALUE;
+        int index = -1;
         
-        Vector2 center = computeCenter(poly);
-        
-        for (int i = 0; i < poly.length; i++) {
-            Vector2 v1 = poly[i];
-            Vector2 v2 = poly[(i + 1) % poly.length];
-
-            Vector2 edge = Vector2.subtract(v1, v2);
-            Vector2 normal = Vector2.normalize(Vector2.perpendicular(edge));
-
-            Vector2 mid = Vector2.scale(Vector2.add(v1, v2), 0.5);
-            Vector2 toCenter = Vector2.subtract(center, mid);
-
-            if (Vector2.dot(normal, toCenter) > 0) {
-                //normal = Vector2.scale(normal, -1);
-            }
-
-            double dot = Vector2.dot(refNormal, normal);
-            //double dot = Vector2.dot(refNormal, edge);
-
-            if (dot > maxDot) {
-                maxDot = dot;
+        for (int i = 0; i < poly.length; i++){
+            double projection = Vector2.dot(poly[i], normal);
+            if (projection > max){
+                max = projection;
                 index = i;
             }
         }
 
-        return new Vector2[] {
-            poly[index],
-            poly[(index + 1) % poly.length]
-        };
+        Vector2 vertex = poly[index];
+        Vector2 next = poly[(index + 1) % poly.length];
+        Vector2 previous = poly[(index - 1 + poly.length) % poly.length];
+
+        Vector2 left = Vector2.subtract(vertex, next);
+        Vector2 right = Vector2.subtract(vertex, previous);
+
+        left.normalize();
+        right.normalize();
+
+        if (Vector2.dot(right, normal) <= Vector2.dot(left, normal)){
+            return new Edge(vertex, previous, vertex);
+        }
+        
+        return new Edge(vertex, vertex, next);
     }
 
     public static Vector2[] clip(Vector2 a, Vector2 b, Vector2 normal, double offset) {
@@ -313,8 +297,8 @@ public class ObjectHandler {
         double da = Vector2.dot(normal, a) - offset;
         double db = Vector2.dot(normal, b) - offset;
 
-        if (da <= 0) out[count++] = a;
-        if (db <= 0) out[count++] = b;
+        if (da >= 0) out[count++] = a;
+        if (db >= 0) out[count++] = b;
 
         if (da * db < 0) {
             double t = da / (da - db);
@@ -341,74 +325,99 @@ public class ObjectHandler {
         return new Vector2(x / count, y / count);
     }
 
-    public static Vector2[] determineManifold(Vector2[] refPoly, Vector2[] incPoly, Vector2 refNormal, AxisResult refRes){
-        Face refFace = getFace(refPoly, refRes.edgeIndex);
-
-        // incident edge MUST use reference face normal
-        Vector2[] incident = findIncidentEdge(incPoly, refNormal);
-
-        System.out.println("Reference poly: ");
-        for (Vector2 point : refPoly) System.out.println(point);
-        System.out.println("Incident poly: ");
-        for (Vector2 point : incPoly) System.out.println(point);
+    public static void printStuff(Vector2[] A, Vector2[] B, Edge inc, Edge ref){
+        System.out.println("A poly: ");
+        for (Vector2 point : A) System.out.println(point);
+        System.out.println("B poly: ");
+        for (Vector2 point : B) System.out.println(point);
 
         System.out.println("Incident points:");
-        System.out.println(incident[0]);
-        System.out.println(incident[1]);
+        System.out.println(inc.p1);
+        System.out.println(inc.p2);
         System.out.println("Reference points:");
-        System.out.println(refFace.v1);
-        System.out.println(refFace.v2);
+        System.out.println(ref.p1);
+        System.out.println(ref.p2);
+    }
+
+    public static Vector2[] determineManifold(Vector2[] A, Vector2[] B, AxisResult refRes){
+        Vector2 normal = refRes.normal;
+
+        Edge aEdge = findPointFarthest(A, normal);
+        Edge bEdge = findPointFarthest(B, Vector2.scale(normal, -1));
+
+        Edge ref;
+        Edge inc;
+        Vector2[] refPoly;
+        boolean flip = false;
+        if (Math.abs(Vector2.dot(Vector2.subtract(aEdge.p1, aEdge.p2), normal)) <= Math.abs(Vector2.dot(Vector2.subtract(bEdge.p1, bEdge.p2), normal))){
+            ref = aEdge;
+            inc = bEdge;
+            refPoly = A;
+        } else {
+            ref = bEdge;
+            inc = aEdge;
+            refPoly = B;
+            // we need to set a flag indicating that the reference
+            // and incident edge were flipped so that when we do the final
+            // clip operation, we use the right edge normal
+            flip = true;
+        }
 
         // build side planes from reference face
-        Vector2 edge = Vector2.subtract(refFace.v2, refFace.v1);
+        Vector2 edge = Vector2.subtract(ref.p2, ref.p1);
         Vector2 edgeDir = Vector2.normalize(edge);
 
-        //Vector2 sideNormal = Vector2.normalize(Vector2.perpendicular(edge));
-        Vector2 sideNormal = refNormal;
+        Vector2 sideNormal = Vector2.normalize(Vector2.perpendicular(edge));
+        //Vector2 sideNormal = refNormal;
 
-        double leftOffset = Vector2.dot(sideNormal, refFace.v1);
-        double rightOffset = Vector2.dot(Vector2.scale(sideNormal, -1), refFace.v2);
+        double leftOffset = Vector2.dot(edgeDir, ref.p1);
+        double rightOffset = Vector2.dot(Vector2.scale(edgeDir, -1), ref.p2);
 
         Vector2[] clip1 = clip(
-            incident[0],
-            incident[1],
-            Vector2.scale(sideNormal, -1),
-            -leftOffset
+            inc.p1,
+            inc.p2,
+            Vector2.scale(edgeDir, 1),
+            leftOffset
         );
 
         if (clip1.length < 2) {
             System.out.println("EXIT 1");
+            printStuff(A, B, inc, ref);
             return null;
         }
 
         Vector2[] clip2 = clip(
             clip1[0],
             clip1[1],
-            sideNormal,
+            Vector2.scale(edgeDir, -1),
             rightOffset
         );
 
         if (clip2.length < 2) {
             System.out.println("EXIT 2");
+            System.out.println("Clips: ");
+            System.out.println(clip1[0]);
+            System.out.println(clip1[1]);
+            printStuff(A, B, inc, ref);
             return null;
         }
 
-        /*
-
-        double refOffset = Vector2.dot(refNormal, refFace.v1);
+        ///*
+        if (flip) normal = Vector2.scale(normal, -1);
+        double max = Vector2.dot(normal, ref.p1);
 
         Vector2[] contacts = new Vector2[2];
         int count = 0;
 
         for (Vector2 v : clip2) {
-            double separation = Vector2.dot(refNormal, v) - refOffset;
+            double separation = Vector2.dot(normal, v) - max;
             if (separation <= 0) {
                 contacts[count++] = v;
             }
         }
-        
-        */
+        //*/
 
+        /*
         Vector2[] contacts = new Vector2[2];
         int count = 0;
 
@@ -418,9 +427,20 @@ public class ObjectHandler {
                 contacts[count++] = v;
             }
         }
+        */
+
+        //int count = 2;
+        //Vector2[] contacts = clip2;
 
         if (count == 0) {
             System.out.println("EXIT 3");
+            System.out.println("Clip1: ");
+            System.out.println(clip1[0]);
+            System.out.println(clip1[1]);
+            System.out.println("Clip2: ");
+            System.out.println(clip2[0]);
+            System.out.println(clip2[1]);
+            printStuff(A, B, inc, ref);
             return null;
         }
 
@@ -465,7 +485,7 @@ public class ObjectHandler {
             refNormal = Vector2.scale(refRes.normal, -1);
         }
 
-        Vector2[] finalContacts = determineManifold(refPoly, incPoly, refNormal, refRes);
+        Vector2[] finalContacts = determineManifold(refPoly, incPoly, refRes);
 
         if (finalContacts == null) return null;
 
@@ -476,8 +496,11 @@ public class ObjectHandler {
         return circlePos.distance(point) < size;
     }
 
-    public static boolean circleCircle(Vector2 pos1, double size1, Vector2 pos2, double size2){
-        return pos1.distance(pos2) < size1 + size2;
+    public static Vector2 circleCircle(Vector2 pos1, double size1, Vector2 pos2, double size2){
+        if (pos1.distance(pos2) < size1 + size2){
+            return Vector2.subtract(pos2, pos1);
+        }
+        return null;
     }
 
     public static boolean linePoint(Vector2 point, Vector2 p1, Vector2 p2){
