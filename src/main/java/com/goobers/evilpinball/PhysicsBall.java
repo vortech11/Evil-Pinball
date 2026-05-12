@@ -11,6 +11,10 @@ public class PhysicsBall {
     double size = 50;
     double mass = 1;
     double bounciness = 0.5;
+    double rotation = 0;
+    double angularVel = 0;
+
+    double momentOfInertia = calculateMomentOfInertia(mass, size, size);
 
     Vector2 gravity = new Vector2(0, 10000);
 
@@ -38,6 +42,7 @@ public class PhysicsBall {
         }
         impulses.clear();
         position.add(velocity);
+        rotation += angularVel;
         //Vector2[] globalVerts = paddle.getGlobalvertices();
         //if (ObjectHandler.polyCircle(position, size, globalVerts)){
         //    position.subtract(velocity);
@@ -54,5 +59,9 @@ public class PhysicsBall {
             (int) (size * 2 / camera.zoom), 
             (int) (size * 2 / camera.zoom)
         );
+    }
+
+    private static double calculateMomentOfInertia(double mass, double width, double height) {
+        return (1.0/12.0) * mass * (width * width + height * height);
     }
 }

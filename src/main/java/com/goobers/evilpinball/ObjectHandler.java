@@ -82,14 +82,18 @@ public class ObjectHandler {
                 obj.position.subtract(mtd);
             }
         }
-        /*
+        
         for (PhysicsBall ball : balls){
             for (PolyNode polygon : level.poly){
-                if (polyCircle(ball.position, ball.size, polygon.getGlobalvertices())){
-                    ball.position.subtract(ball.velocity);
-                    ball.velocity.copy(new Vector2(0, 0));
+                Manifold collisionManifold = circlePolyManifold(ball.position, ball.size, polygon.getGlobalvertices());
+                if (collisionManifold == null){
+                    continue;
                 }
+                Vector2 mtd = Vector2.scale(collisionManifold.normal, collisionManifold.penetration);
+                ball.position.subtract(mtd);
+                applyImpulse(ball, polygon, collisionManifold.contacts[0], 1, mtd);
             }
+            /*
             for (PhysicsBall ball2 : balls){
                 if (ball == ball2) continue;
                 if (circleCircle(ball.position, ball.size, ball2.position, ball2.size)){
@@ -107,8 +111,9 @@ public class ObjectHandler {
                     //ball2.position.subtract(Vector2.scale(Vector2.subtract(ball.position, ball2.position), 0.5));
                 }
             }
+            */
         }
-        */
+        
     }
 
     public static void applyImpulse(PhysicsObj objA, PhysicsObj objB, Vector2 contact, int contactNum, Vector2 normal){
@@ -179,6 +184,93 @@ public class ObjectHandler {
         
         objA.velocity.subtract(Vector2.scale(impulse, 1/objA.mass));
         objA.angularVel -= rACrossN * j / objA.momentOfInertia;
+    }
+
+    public static void applyImpulse(PhysicsBall objA, PhysicsBall objB, Vector2 contact, int contactNum, Vector2 normal){
+        Vector2 normalUnit = Vector2.normalize(normal);
+        if (normalUnit.magnitudeSq() == 0) return;
+
+        Vector2 rA = Vector2.subtract(contact, objA.position);
+        Vector2 rB = Vector2.subtract(contact, objB.position);
+
+        Vector2 vA = Vector2.add((new Vector2(rA.y * -objA.angularVel, rA.x * objA.angularVel)), objA.velocity);
+        Vector2 vB = Vector2.add((new Vector2(rB.y * -objB.angularVel, rB.x * objB.angularVel)), objB.velocity);
+
+        Vector2 vRel = Vector2.subtract(vB, vA);
+
+        double velAlongNormal = Vector2.dot(vRel, normalUnit);
+        //if (velAlongNormal > 0) return;
+
+        double restitution = Math.min(objA.bounciness, objB.bounciness);
+
+        double rACrossN = Vector2.cross(rA, normalUnit);
+        double rBCrossN = Vector2.cross(rB, normalUnit);
+
+        double inverseMassSum = 
+            (1 / objA.mass) + (1 / objB.mass) + 
+            (rACrossN * rACrossN) / objA.momentOfInertia + 
+            (rBCrossN * rBCrossN) / objB.momentOfInertia;
+        
+        double j = -(1 + restitution) * velAlongNormal;
+        j /= inverseMassSum;
+        j /= contactNum;
+
+        Vector2 impulse = Vector2.scale(normalUnit, j);
+        
+        objA.velocity.subtract(Vector2.scale(impulse, 1/objA.mass));
+        objA.angularVel -= rACrossN * j / objA.momentOfInertia;
+
+        objB.velocity.add(Vector2.scale(impulse, 1/objB.mass));
+        objB.angularVel += rBCrossN * j / objB.momentOfInertia;
+    }
+
+    public static void applyImpulse(PhysicsBall ball, PolyNode objB, Vector2 contact, int contactNum, Vector2 normal){
+        Vector2 normalUnit = Vector2.normalize(normal);
+        //Vector2 normalUnit = normal;
+        if (normalUnit.magnitudeSq() == 0) return;
+
+        Vector2 rA = Vector2.subtract(contact, ball.position);
+
+        Vector2 vA = Vector2.add((new Vector2(rA.y * -ball.angularVel, rA.x * ball.angularVel)), ball.velocity);
+
+        Vector2 vRel = Vector2.scale(vA, -1);
+
+        double velAlongNormal = Vector2.dot(vRel, normalUnit);
+        //if (velAlongNormal > 0) return;
+
+        double restitution = Math.min(ball.bounciness, objB.bounciness);
+
+        double rACrossN = Vector2.cross(rA, normalUnit);
+
+        double inverseMassSum = 
+            (1 / ball.mass) + 
+            (rACrossN * rACrossN) / ball.momentOfInertia;
+        
+        double j = -(1 + restitution) * velAlongNormal;
+        j /= inverseMassSum;
+        j /= contactNum;
+
+        Vector2 impulse = Vector2.scale(normalUnit, j);
+        
+        ball.velocity.subtract(Vector2.scale(impulse, 1/ball.mass));
+        ball.angularVel -= rACrossN * j / ball.momentOfInertia;
+    }
+
+    public static Manifold circlePolyManifold(Vector2 ballCenter, double radius, Vector2[] poly){
+        Vector2 point = findClosestPoint(poly, ballCenter);
+        Vector2 axis = Vector2.normalize(Vector2.perpendicular(Vector2.subtract(point, ballCenter)));
+        double projected = Vector2.dot(ballCenter, axis);
+        MinMax projA = project(poly, axis);
+        MinMax projB = new MinMax(projected - radius, projected + radius);
+
+        double overlap = Math.min(projA.max(), projB.max())
+                           - Math.max(projA.min(), projB.min());
+
+        if (overlap < -Double.MIN_VALUE){
+            return null;
+        }
+
+        return new Manifold(axis, overlap, new Vector2[] {point});
     }
 
     public record MinMax(double min, double max){}
@@ -257,6 +349,19 @@ public class ObjectHandler {
         }
 
         return new AxisResult(bestNormal, minOverlap, bestEdge);
+    }
+
+    public static Vector2 findClosestPoint(Vector2[] poly, Vector2 point){
+        double min = Double.MAX_VALUE;
+        Vector2 minPoint = null;
+        for (Vector2 polyPoint : poly){
+            double distance = polyPoint.distanceSq(point);
+            if (distance < min){
+                min = distance;
+                minPoint = polyPoint;
+            }
+        }
+        return minPoint;
     }
 
     public record Edge(Vector2 vertex, Vector2 p1, Vector2 p2){}
